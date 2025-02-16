@@ -1,9 +1,26 @@
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+const int DS18B20_PIN = 22;
+OneWire oneWire(DS18B20_PIN);
+DallasTemperature sensors(&oneWire);
+
 void setup() {
-    Serial.begin(9600);  // Start Serial Monitor at 115200 baud
+    Serial.begin(9600);
+    sensors.begin();
 }
 
 void loop() {
-    int analogValue = analogRead(15);  // Read analog value from GPIO15
-    Serial.println(analogValue);       // Print to Serial Monitor
-    delay(500);  // Wait 500ms to avoid flooding output
+    sensors.requestTemperatures();
+    float tempC = sensors.getTempCByIndex(0);
+
+    if (tempC == -127.00) {
+        Serial.println("Error: No DS18B20 sensor detected!");
+    } else {
+        Serial.print("Temperature: ");
+        Serial.print(tempC);
+        Serial.println(" °C");
+    }
+
+    delay(1000);
 }
