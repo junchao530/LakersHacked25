@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import timedelta, datetime
+import os
 
 def load_data():
     try:
@@ -44,7 +45,29 @@ def plots(title, y_axis, time, data, y):
     st.line_chart(chart_data)
     st.markdown("<br><br>", unsafe_allow_html=True)
 
+
+# def generate_insights(data_segment, period_type):
+
+    
+#     return 0
+
+def Historical(df_filtered,time_frame):
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        plots("Water Quality", "Percent %", df_filtered['timestamp'], df_filtered, 'purity')
+        plots("Flow Rate", "Litre/Minute L/min", df_filtered['timestamp'], df_filtered, 'flow_rate')
+    with col2:
+        plots("Temperature Rate", "Celsius °C", df_filtered['timestamp'], df_filtered, 'temperature')
+        
+
+
+
+    
+
 df = load_data()
+
 
 with st.sidebar:
     st.title("HydroMIND Dashboard")
@@ -55,6 +78,8 @@ with st.sidebar:
     chart_selection = st.selectbox("Select a chart type", ("Real Time", "Historical", "Projection"))
     start_date = st.date_input("Start date", default_start_date, min_value=df['timestamp'].min().date(), max_value=max_date)
     time_frame = st.selectbox("Select time frame", ("Daily", "Weekly", "Monthly"))
+    
+df_filtered = aggregate_data(df, start_date, time_frame)
 
 if chart_selection == "Real Time":
     st.markdown("<h1 style='text-align: center;'>Water monitor real time statistics</h1>", unsafe_allow_html=True)
@@ -62,19 +87,14 @@ if chart_selection == "Projection":
     st.markdown("<h1 style='text-align: center;'>Water monitor projection statistics</h1>", unsafe_allow_html=True)
 if chart_selection == "Historical":
     st.markdown("<h1 style='text-align: center;'>Water monitor historical statistics</h1>", unsafe_allow_html=True)
+    Historical(df_filtered,time_frame)
 
-df_filtered = aggregate_data(df, start_date, time_frame)
 
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    plots("Water Quality", "Percent %", df_filtered['timestamp'], df_filtered, 'purity')
-    plots("Flow Rate", "Litre/Minute L/min", df_filtered['timestamp'], df_filtered, 'flow_rate')
-with col2:
-    plots("Temperature Rate", "Celsius °C", df_filtered['timestamp'], df_filtered, 'temperature')
 
 with st.expander('See DataFrame (Selected time frame)'):
     st.dataframe(df_filtered)
+
+
 
 st.markdown("""
     <style>
