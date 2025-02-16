@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import pickle
 import plotly.graph_objects as go
 from prophet import Prophet
 from prophet.plot import plot_plotly
@@ -54,13 +55,15 @@ def main():
     future = model_full.make_future_dataframe(periods=24, freq='M')
     forecast_full = model_full.predict(future)
     
-    # 6. Create an interactive Plotly chart
-    #    Historical data: all dates in monthly_data (blue)
-    #    Forecast: all forecasted points beyond the last historical date (red)
+    # 6. Save the full model to disk
+    with open("prophet_model.pkl", "wb") as f:
+        pickle.dump(model_full, f)
+    print("\nProphet model saved as 'prophet_model.pkl'.")
+
+    # 7. Create an interactive Plotly chart
     last_hist_date = monthly_data['ds'].max()
     forecast_future = forecast_full[forecast_full['ds'] > last_hist_date]
     
-    # Create traces for historical and forecasted data:
     historical_trace = go.Scatter(
         x=monthly_data['ds'],
         y=monthly_data['y'],
@@ -75,8 +78,6 @@ def main():
         name='Forecast (Next 2 Years)',
         line=dict(color='red')
     )
-    
-    # Optionally add confidence intervals as a filled area:
     ci_trace = go.Scatter(
         x=forecast_future['ds'].tolist() + forecast_future['ds'][::-1].tolist(),
         y=forecast_future['yhat_upper'].tolist() + forecast_future['yhat_lower'][::-1].tolist(),
@@ -88,7 +89,6 @@ def main():
         name='Confidence Interval'
     )
     
-    # Build the figure
     fig = go.Figure(data=[historical_trace, forecast_trace, ci_trace])
     fig.update_layout(
         title="Monthly Water Usage: Historical (Blue) & Forecast (Red)",
@@ -97,7 +97,11 @@ def main():
         template="plotly_white"
     )
     
-    # Show the interactive chart (zoomable, etc.)
+    # 8. Save the interactive chart as an HTML file
+    fig.write_html("forecast_chart.html")
+    print("\nInteractive chart saved as 'forecast_chart.html'.")
+    
+    # Optionally show the figure (if running locally with a browser)
     fig.show()
 
 if __name__ == "__main__":
