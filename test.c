@@ -66,22 +66,20 @@ int main() {
     double noise_std_flow = 1.0;
     double noise_std_temp = 1.0;
 
-    struct tm start_tm = {0};
-    start_tm.tm_year = 2020 - 1900;
-    start_tm.tm_mon = 0;
-    start_tm.tm_mday = 1;
-    start_tm.tm_hour = 0;
-    start_tm.tm_min = 0;
-    time_t start_time = mktime(&start_tm);
+    // Get today's date and time
+    time_t now = time(NULL);
+    struct tm *today_tm = localtime(&now);
 
-    struct tm end_tm = {0};
-    end_tm.tm_year = 2022 - 1901;
-    end_tm.tm_mon = 11;
-    end_tm.tm_mday = 31;
-    end_tm.tm_hour = 23;
-    end_tm.tm_min = 59;
+    // Set end_time to today
+    struct tm end_tm = *today_tm;
     time_t end_time = mktime(&end_tm);
 
+    // Set start_time to 3 years before today
+    struct tm start_tm = *today_tm;
+    start_tm.tm_year -= 3; // Subtract 3 years
+    time_t start_time = mktime(&start_tm);
+
+    // Total minutes in the 3-year range
     long long total_minutes = (long long)difftime(end_time, start_time) / 60 + 1;
 
     char timestamp_str[25];
@@ -108,7 +106,7 @@ int main() {
         double purity = get_water_purity(current_time, start_time);
         
         fprintf(fp, "%s,%.3f,%s,%d,%.2f,%.2f\n", timestamp_str, flow_rate, day_type, current_tm->tm_mon + 1, temperature, purity);
-        current_time += 60;
+        current_time += 60; // Increment by 1 minute
         counter++;
 
         if (counter % progress_interval == 0) {
