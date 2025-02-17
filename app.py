@@ -9,9 +9,11 @@ import openai
 import os
 import time 
 import serial
-
+import re
 openai_api_key = os.getenv("OPENAI_API_KEY")
 openai.api_key = openai_api_key
+
+from serial.serialutil import SerialException
 
 
 @st.cache_resource
@@ -237,47 +239,52 @@ def week_vol(val):
 def month_vol(val):
     return val*2.628*10**3     
 
-def read_from_usb():
+def usb_init():
     comPort = "/dev/rfcomm0"
     print("Attempting connection to: ", comPort)
     test = 0
     try:
         serialPort = serial.Serial(port=comPort, baudrate=9600, timeout=0, parity=serial.PARITY_EVEN, stopbits=1)
         print("Connection Successful!")
-        test = 1
+        return serialPort
     except Exception as e:
         print("Connection Failed :(")
+    return -1
+
+def read_from_usb(connection):
     size = 1024
-    #serialPort2 = serial.Serial(port='COM6', baudrate=9600, timeout=0, parity=serial.PARITY_EVEN, stopbits=1)
-    while test:
-        data = serialPort.readline(size)
-        if data:
-            return(data)
-        else:
-            return """
-        0.00 L/min
-        Temperature: 22.44 C
-        Turbidity: 52
-        """
-    return """
-        0.00 L/min
-        Temperature: 22.44 C
-        Turbidity: 52
-        """
+    if connection != -1:
+        try:
+            data = connection.readline(size)
+            if data:
+                return data.decode('utf-8', errors='ignore')  # Decode bytes to string
+            else:
+                return None
+        except SerialException as e:
+            print(f"SerialException: {e}")
+            return None
+    return None
 
-def parse_data(data):
-    lines = data.strip().split('\n')
-    flow_rate = float(lines[0].split()[0])  # Extract flow rate
-    temperature = float(lines[1].split(': ')[1].split()[0])  # Extract temperature
-    turbidity = int(lines[2].split(': ')[1])  # Extract turbidity
-    return flow_rate, temperature, turbidity
+def parse_data_packet(packet):
+    parts = packet.split(';')
 
+# Extract each value based on the structure of the string
+    date = parts[0].split(":")[1].strip()
+    flow = float(parts[1].split(":")[1].strip())
+    temperature = float(parts[2].split(":")[1].strip())
+    turbidity = float(parts[3].split(":")[1].strip())
+
+
+    date_time = datetime.strptime(date, "%Y-%m-%d %H-%M-%S")
+
+
+    return date_time, flow, temperature, turbidity
 
 def Real_Time():
     #st.title("Real-Time Data Visualization")
-    st.experimental_rerun()
     columns = ['timestamp', 'flow_rate', 'temperature', 'turbidity']
     data = pd.DataFrame(columns=columns)
+    
 
     col1, col2, col3 = st.columns(3)  
 
@@ -286,12 +293,17 @@ def Real_Time():
     chart_placeholder2 = col2.empty()
     chart_placeholder3 = col3.empty()
 
+    connection = usb_init()
+
     while True:
-        raw_data = read_from_usb()
-        flow_rate, temperature, turbidity = parse_data(raw_data)
+        raw_data = read_from_usb(connection)
+        if raw_data is None:  # Check if raw_data is None
+            continue  # Skip the rest of the loop if no data is available
+        
+        date_time, flow_rate, temperature, turbidity = parse_data_packet(raw_data)
 
         new_row = {
-            'timestamp': datetime.now(),
+            'timestamp': date_time,
             'flow_rate': flow_rate,
             'temperature': temperature,
             'turbidity': turbidity

@@ -74,10 +74,6 @@ void run_flow_sensor() {
     flow_rate = 0;  // No flow detected
   }
 
-  Serial.print("Flow: ");
-  Serial.println(flow_rate);
-  bluetoothSerial.print(flow_rate);
-  bluetoothSerial.print(" L/min\r\n");
 }
 
 void run_temp_sensor() {
@@ -85,13 +81,6 @@ void run_temp_sensor() {
   temp_sensor.requestTemperatures();
   tempC = temp_sensor.getTempCByIndex(0);
 
-  if (tempC == -127.00) {
-      bluetoothSerial.println("Error: No DS18B20 sensor detected!");
-  } else {
-      bluetoothSerial.print("Temperature: ");
-      bluetoothSerial.print(tempC);
-      bluetoothSerial.println(" C");
-  }
 }
 
 void run_turbidity_sensor() {
@@ -99,39 +88,31 @@ void run_turbidity_sensor() {
   water_quality_score = map(turbidity_raw, 0, 999, 0, 100);
 
   water_quality_score = constrain(water_quality_score, 0, 100);
+
+}
+
+void push_data() {
+  // Push flow data
+  bluetoothSerial.print("Flow: ");
+  bluetoothSerial.print(flow_rate);
+  // bluetoothSerial.print(" L/min");
+  bluetoothSerial.print(";");
+
+  // Push temp data
+  if (tempC == -127.00) {
+      bluetoothSerial.print("Error: No DS18B20 sensor detected!;");
+  } else {
+      bluetoothSerial.print("Temperature: ");
+      bluetoothSerial.print(tempC);
+      // bluetoothSerial.print(" C");
+      bluetoothSerial.print(";");
+  }
+
   // Push turbidity data
   bluetoothSerial.print("Turbidity: ");
   bluetoothSerial.print(water_quality_score);
   bluetoothSerial.println("");
 
-}
-
-void push_data() {
-  if(bluetoothSerial.available())
-  {
-    Serial.print("Push starting");
-    Serial.println(millis());
-    // Push flow data
-    bluetoothSerial.print(flow_rate);
-    bluetoothSerial.println(" L/min\r\n");
-
-    // Push temp data
-    if (tempC == -127.00) {
-      bluetoothSerial.println("Error: No DS18B20 sensor detected!");
-    } else {
-      bluetoothSerial.print("Temperature: ");
-      bluetoothSerial.print(tempC);
-      bluetoothSerial.println(" °C");
-    }
-
-    // Push turbidity data
-    bluetoothSerial.print("Turbidity: ");
-    bluetoothSerial.print(water_quality_score);
-    bluetoothSerial.println("");
-
-    Serial.print("Push ending");
-    Serial.println(millis());
-  }
 }
 
 void print_lcd(){
@@ -171,21 +152,29 @@ void print_lcd(){
 }
 
 void generate_datetime() {
-	DateTime now = rtc.now();
-  bluetoothSerial.print("Date & Time: ");
-  bluetoothSerial.print(now.year(), DEC);
-  bluetoothSerial.print('/');
-  bluetoothSerial.print(now.month(), DEC);
-  bluetoothSerial.print('/');
-  bluetoothSerial.print(now.day(), DEC);
-  bluetoothSerial.print(" (");
-  bluetoothSerial.print(daysOfTheWeek[now.dayOfTheWeek()]);
-  bluetoothSerial.print(") ");
-  bluetoothSerial.print(now.hour(), DEC);
-  bluetoothSerial.print(':');
-  bluetoothSerial.print(now.minute(), DEC);
-  bluetoothSerial.print(':');
-  bluetoothSerial.println(now.second(), DEC);
+  DateTime now = rtc.now();
+
+  // Ensure proper formatting with zero-padding
+  bluetoothSerial.print("Date: ");
+  bluetoothSerial.print(now.year());
+  bluetoothSerial.print('-');
+  if (now.month() < 10) bluetoothSerial.print('0'); 
+  bluetoothSerial.print(now.month());
+  bluetoothSerial.print('-');
+  if (now.day() < 10) bluetoothSerial.print('0'); 
+  bluetoothSerial.print(now.day());
+  bluetoothSerial.print(' '); // Space between date and time
+
+  if (now.hour() < 10) bluetoothSerial.print('0'); 
+  bluetoothSerial.print(now.hour());
+  bluetoothSerial.print('-');
+  if (now.minute() < 10) bluetoothSerial.print('0'); 
+  bluetoothSerial.print(now.minute());
+  bluetoothSerial.print('-');
+  if (now.second() < 10) bluetoothSerial.print('0'); 
+  bluetoothSerial.print(now.second()); // Use println for newline
+  
+  bluetoothSerial.print(";");
 }
 
 void setup() {
@@ -216,38 +205,23 @@ void setup() {
 }
 
 void loop() {
-  // Serial.print("Loop! ");
-  // Serial.println(millis());
   if (buttonPressed) {
-    //cli();
     buttonPressed = false;
-    //sei();
 
     buttonState = (buttonState + 1) %3; // limit it from 0 to 2
-    // Serial.println(buttonState);
   }
-	
-	generate_datetime();	
-	
-  // Serial.print("Flow start: ");
-  // Serial.println(millis());
+		
   run_flow_sensor();
 
-  // Serial.print("Flow end/temp start: ");
-  // Serial.println(millis());
   run_temp_sensor();
 
-  // Serial.print("Temp end/turb start: ");
-  // Serial.println(millis());
   run_turbidity_sensor();
 
-  // Serial.print("Turb end/lcd start: ");
-  // Serial.println(millis());
   print_lcd();
 
-  // Serial.print("Lcd end: ");
-  // Serial.println(millis());
-  //push_data();
+	generate_datetime();	
+
+  push_data();
 
   delay(100);// prepare for next data ...
 }
