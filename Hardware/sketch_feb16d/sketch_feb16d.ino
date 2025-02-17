@@ -5,6 +5,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <LiquidCrystal.h>
+#include <RTClib.h>
 
 // define constants
 #define FLOW_SENSOR 12
@@ -20,6 +21,17 @@ SoftwareSerial bluetoothSerial(RX, TX);
 LiquidCrystal lcd(52, 50, 53, 51, 49, 47, 45, 43, 41, 39);
 OneWire oneWire(TEMP_SENSOR);
 DallasTemperature temp_sensor(&oneWire);
+RTC_DS1307 rtc;
+
+char daysOfTheWeek[7][12] = {
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday"
+};
 
 //instantiate variables
 int buttonState = 0;
@@ -158,6 +170,24 @@ void print_lcd(){
 
 }
 
+void generate_datetime() {
+	DateTime now = rtc.now();
+  bluetoothSerial.print("Date & Time: ");
+  bluetoothSerial.print(now.year(), DEC);
+  bluetoothSerial.print('/');
+  bluetoothSerial.print(now.month(), DEC);
+  bluetoothSerial.print('/');
+  bluetoothSerial.print(now.day(), DEC);
+  bluetoothSerial.print(" (");
+  bluetoothSerial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+  bluetoothSerial.print(") ");
+  bluetoothSerial.print(now.hour(), DEC);
+  bluetoothSerial.print(':');
+  bluetoothSerial.print(now.minute(), DEC);
+  bluetoothSerial.print(':');
+  bluetoothSerial.println(now.second(), DEC);
+}
+
 void setup() {
   // Instantiate sensors
   pinMode(FLOW_SENSOR, INPUT);
@@ -173,6 +203,16 @@ void setup() {
   bluetoothSerial.begin(9600);
   bluetoothSerial.println("Device ON");
   Serial.begin(9600);
+
+	// Setup RTC module
+	if (! rtc.begin()) {
+		bluetoothSerial.println("Couldn't find RTC");
+		bluetoothSerial.flush();
+		while(1);
+	}
+
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));	
+
 }
 
 void loop() {
@@ -186,6 +226,9 @@ void loop() {
     buttonState = (buttonState + 1) %3; // limit it from 0 to 2
     // Serial.println(buttonState);
   }
+	
+	generate_datetime();	
+	
   // Serial.print("Flow start: ");
   // Serial.println(millis());
   run_flow_sensor();
