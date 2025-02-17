@@ -7,6 +7,8 @@ from prophet import Prophet
 from datetime import datetime, timedelta
 import openai
 import os
+import time 
+import serial
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
 openai.api_key = openai_api_key
@@ -63,6 +65,7 @@ def create_forecast_chart(monthly_data, forecast):
         template="plotly_white"
     )
     return fig
+
 
 
 def load_data():
@@ -158,6 +161,7 @@ def create_forecast_chart(monthly_data, forecast):
         template="plotly_white"
     )
     return fig
+
 def Historical(df_filtered,time_frame):
 
     col1, col2 = st.columns([1, 1])
@@ -231,7 +235,81 @@ def day_vol(val):
 def week_vol(val):
     return val*604.8
 def month_vol(val):
-    return val*2.628*10**3        
+    return val*2.628*10**3     
+
+def read_from_usb():
+    comPort = "/dev/rfcomm0"
+    print("Attempting connection to: ", comPort)
+    test = 0
+    try:
+        serialPort = serial.Serial(port=comPort, baudrate=9600, timeout=0, parity=serial.PARITY_EVEN, stopbits=1)
+        print("Connection Successful!")
+        test = 1
+    except Exception as e:
+        print("Connection Failed :(")
+    size = 1024
+    #serialPort2 = serial.Serial(port='COM6', baudrate=9600, timeout=0, parity=serial.PARITY_EVEN, stopbits=1)
+    while test:
+        data = serialPort.readline(size)
+        if data:
+            return(data)
+        else:
+            return """
+        0.00 L/min
+        Temperature: 22.44 C
+        Turbidity: 52
+        """
+    return """
+        0.00 L/min
+        Temperature: 22.44 C
+        Turbidity: 52
+        """
+
+def parse_data(data):
+    lines = data.strip().split('\n')
+    flow_rate = float(lines[0].split()[0])  # Extract flow rate
+    temperature = float(lines[1].split(': ')[1].split()[0])  # Extract temperature
+    turbidity = int(lines[2].split(': ')[1])  # Extract turbidity
+    return flow_rate, temperature, turbidity
+
+
+def Real_Time():
+    #st.title("Real-Time Data Visualization")
+    st.experimental_rerun()
+    columns = ['timestamp', 'flow_rate', 'temperature', 'turbidity']
+    data = pd.DataFrame(columns=columns)
+
+    col1, col2, col3 = st.columns(3)  
+
+   
+    chart_placeholder1 = col1.empty()
+    chart_placeholder2 = col2.empty()
+    chart_placeholder3 = col3.empty()
+
+    while True:
+        raw_data = read_from_usb()
+        flow_rate, temperature, turbidity = parse_data(raw_data)
+
+        new_row = {
+            'timestamp': datetime.now(),
+            'flow_rate': flow_rate,
+            'temperature': temperature,
+            'turbidity': turbidity
+        }
+        data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+
+
+        # Convert timestamp column to index for plotting
+        data_indexed = data.set_index('timestamp')
+
+        # Update each chart separately
+        
+        chart_placeholder1.line_chart(data_indexed[['flow_rate']])
+        chart_placeholder2.line_chart(data_indexed[['temperature']])
+        chart_placeholder3.line_chart(data_indexed[['turbidity']])
+
+        time.sleep(1)
+
 
     
 
@@ -252,10 +330,10 @@ with st.sidebar:
 
 if chart_selection == "Real Time":
     st.markdown("<h1 style='text-align: center;'>Water monitor real time statistics</h1>", unsafe_allow_html=True)
+    Real_Time()
 
 
 
-    
 if chart_selection == "Projection":
     st.markdown("<h1 style='text-align: center;'>Water monitor projection statistics</h1>", unsafe_allow_html=True)
     st.title("HydroMIND Projections & Insights")
